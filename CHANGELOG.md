@@ -1,3 +1,7 @@
+## 0.0.4 / 2020-07-21
+
+* [BUG] allow log level to be set
+
 ## 0.0.3 / 2020-07-21
 
 * [BUG] fix example config for cstate

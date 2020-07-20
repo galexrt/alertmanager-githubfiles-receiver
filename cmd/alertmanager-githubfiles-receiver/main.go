@@ -57,6 +57,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
+	rootCmd.PersistentFlags().String("loglevel", "INFO", "logrus log level")
 	rootCmd.PersistentFlags().String("listen", ":9959", "webhook receiver listen address")
 	rootCmd.PersistentFlags().String("repo", "", "full name of repository (with owner)")
 	rootCmd.PersistentFlags().String("dir", "content/issues", "base Path in the repository")
@@ -92,13 +93,18 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		log.Infoln("Using config file:", viper.ConfigFileUsed())
 	}
+
+	// Set log level
+	l, err := log.ParseLevel(viper.GetString("loglevel"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.SetLevel(l)
 }
 
 func main() {
-	log.SetLevel(log.DebugLevel)
-
 	Execute()
 }
 

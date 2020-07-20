@@ -1,3 +1,4 @@
+loglevel: DEBUG
 listen: ':9959'
 repo: "OWNER/REPO_NAME"
 branch: master
