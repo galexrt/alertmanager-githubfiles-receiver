@@ -1,0 +1,24 @@
+listen: ':9959'
+repo: "OWNER/REPO_NAME"
+branch: master
+commitMessage: "incidents: updated incidents"
+commitName: "YOUR_FULL_NAME"
+commitEmail: "YOUR_GIT_EMAIL"
+dir: "content/issues"
+filename: |
+  {{ .Time.Year }}/{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day }}-{{ index .Alert.Annotations "githubfiles-file-title" }}.md
+engine: cstate
+cstateFrontmatter: |
+  title: "{{ index .Alert.Annotations "githubfiles-title" }}"
+  date: {{ .Data.StartsAt }}
+  resolved: {{ if eq .Alert.Status "resolved" }}true{{ else }}false{{ end }}
+  resolvedWhen: {{ .Data.EndsAt }}
+  severity: {{ index .Alert.Annotations "githubfiles-severity" }}
+  affected:
+  {{- $arr := Split (index .Alert.Annotations "githubfiles-affected") "," }}
+  {{- range $k, $v := $arr }}
+    - {{ $v }}
+  {{- end }}
+  section: issue
+cstateEntry: |
+  *{{ .Data.State }}* {{ if eq .Alert.Status "resolved" }}{{ index .Alert.Annotations "githubfiles-entry-resolved-message" }}{{ else }}{{ index .Alert.Annotations "githubfiles-entry-firing-message" }}{{ end }} {{"{{"}}< track "{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day }} {{ .Time.Hour }}-{{ .Time.Minute }}-{{ .Time.Seconds }}" >{{"}}"}}
