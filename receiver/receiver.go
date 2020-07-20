@@ -87,6 +87,7 @@ func (r *Receiver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 
 	if err := r.handleWebhook(msg); err != nil {
 		log.Error(err)
+		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 }
