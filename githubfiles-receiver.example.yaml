@@ -21,4 +21,4 @@ cstateFrontmatter: |
   {{- end }}
   section: issue
 cstateEntry: |
-  *{{ .Data.State }}* {{ if eq .Alert.Status "resolved" }}{{ index .Alert.Annotations "githubfiles_entry_resolved_message" }}{{ else }}{{ index .Alert.Annotations "githubfiles_entry_firing_message" }}{{ end }} {{"{{"}}< track "{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day | printf "%02d" }} {{ .Time.Hour | printf "%02d" }}-{{ .Time.Minute | printf "%02d" }}-{{ .Time.Second | printf "%02d" }}" >{{"}}"}}
+  *{{ .Data.State }}* {{ if eq .Alert.Status "resolved" }}{{ index .Alert.Annotations "githubfiles_entry_resolved_message" }}{{ else }}{{ index .Alert.Annotations "githubfiles_entry_firing_message" }}{{ end }} {{"{{"}}< track "{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day | printf "%02d" }} {{ .Time.Hour | printf "%02d" }}:{{ .Time.Minute | printf "%02d" }}:{{ .Time.Second | printf "%02d" }}" >{{"}}"}}
