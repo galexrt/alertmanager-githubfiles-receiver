@@ -38,7 +38,7 @@ import (
 
 const (
 	// EnabledRuleLabel label the receiver is looking out for if it should act
-	EnabledRuleLabel = "githubfiles-enabled"
+	EnabledRuleLabel = "githubfilesenabled"
 )
 
 // Receiver webhook receiver

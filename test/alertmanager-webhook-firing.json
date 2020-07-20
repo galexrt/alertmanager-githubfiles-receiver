@@ -8,7 +8,7 @@
           "alertname":"KubeletDown",
           "prometheus":"monitoring/k8s",
           "severity":"critical",
-          "githubfiles-enabled": "true"
+          "githubfilesenabled":"true"
         },
         "annotations":{
           "message":"Kubelet has disappeared from Prometheus target discovery.",
