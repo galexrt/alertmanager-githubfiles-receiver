@@ -153,7 +153,10 @@ func (r *Receiver) handleAlert(msg *webhook.Message, alert alert_template.Alert)
 		}
 	}
 
-	fmt.Printf("content:\n%s\n", fileContent)
+	// If log level is debug or trace show message content
+	if log.GetLevel() == log.DebugLevel || log.GetLevel() == log.TraceLevel {
+		fmt.Printf("content:\n%s\n", fileContent)
+	}
 
 	if err := r.createOrUpdateFileInRepo(path.Join(r.r.Dir, fileName), fileContent, needToCreateFile, sha); err != nil {
 		return err
