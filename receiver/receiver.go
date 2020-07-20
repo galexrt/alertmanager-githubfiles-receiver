@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	// EnabledRuleLabel
+	// EnabledRuleLabel label the receiver is looking out for if it should act
 	EnabledRuleLabel = "githubfiles-enabled"
 )
 
@@ -71,7 +71,7 @@ func (r *Receiver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	// Read request body.
 	alertBytes, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		log.Error("failed to read request body: %s", err)
+		log.Errorf("failed to read request body: %s", err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -80,7 +80,7 @@ func (r *Receiver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	msg := &webhook.Message{}
 	if err := json.Unmarshal(alertBytes, msg); err != nil {
 		log.Errorf("failed to parse webhook message from %s: %s", req.RemoteAddr, err)
-		log.Debug("webhook message %s", string(alertBytes))
+		log.Debugf("webhook message %s", string(alertBytes))
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
