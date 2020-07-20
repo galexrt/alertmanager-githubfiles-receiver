@@ -120,15 +120,19 @@ func (r *Receiver) handleAlert(msg *webhook.Message, alert alert_template.Alert)
 		return err
 	}
 	fileName = strings.TrimSpace(fileName)
-	fileNameSplit := strings.Split(fileName, "/")
-	_ = fileNameSplit
+
+	needToCreateFile := false
 
 	opts := &github.RepositoryContentGetOptions{}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	file, _, _, err := r.client.Repositories.GetContents(ctx, r.r.Owner, r.r.Repo, path.Join(r.r.Dir, fileName), opts)
-	if err != nil {
-		return err
+	file, _, resp, err := r.client.Repositories.GetContents(ctx, r.r.Owner, r.r.Repo, path.Join(r.r.Dir, fileName), opts)
+	if resp.StatusCode == http.StatusNotFound {
+		needToCreateFile = true
+	} else {
+		if err != nil {
+			return err
+		}
 	}
 
 	fileContent := ""
@@ -139,11 +143,6 @@ func (r *Receiver) handleAlert(msg *webhook.Message, alert alert_template.Alert)
 		if err != nil {
 			return err
 		}
-	}
-
-	needToCreateFile := false
-	if fileContent == "" {
-		needToCreateFile = true
 	}
 
 	switch viper.GetString("engine") {

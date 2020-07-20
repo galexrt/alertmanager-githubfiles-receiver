@@ -6,19 +6,19 @@ commitName: "YOUR_FULL_NAME"
 commitEmail: "YOUR_GIT_EMAIL"
 dir: "content/issues"
 filename: |
-  {{ .Time.Year }}/{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day }}-{{ index .Alert.Annotations "githubfiles-file-title" }}.md
+  {{ .Time.Year }}/{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day | printf "%02d" }}-{{ index .Alert.Annotations "githubfiles_file_title" }}.md
 engine: cstate
 cstateFrontmatter: |
-  title: "{{ index .Alert.Annotations "githubfiles-title" }}"
+  title: "{{ index .Alert.Annotations "githubfiles_title" }}"
   date: {{ .Data.StartsAt }}
   resolved: {{ if eq .Alert.Status "resolved" }}true{{ else }}false{{ end }}
   resolvedWhen: {{ .Data.EndsAt }}
-  severity: {{ index .Alert.Annotations "githubfiles-severity" }}
+  severity: {{ index .Alert.Annotations "githubfiles_severity" }}
   affected:
-  {{- $arr := Split (index .Alert.Annotations "githubfiles-affected") "," }}
+  {{- $arr := Split (index .Alert.Annotations "githubfiles_affected") "," }}
   {{- range $k, $v := $arr }}
     - {{ $v }}
   {{- end }}
   section: issue
 cstateEntry: |
-  *{{ .Data.State }}* {{ if eq .Alert.Status "resolved" }}{{ index .Alert.Annotations "githubfiles-entry-resolved-message" }}{{ else }}{{ index .Alert.Annotations "githubfiles-entry-firing-message" }}{{ end }} {{"{{"}}< track "{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day }} {{ .Time.Hour }}-{{ .Time.Minute }}-{{ .Time.Seconds }}" >{{"}}"}}
+  *{{ .Data.State }}* {{ if eq .Alert.Status "resolved" }}{{ index .Alert.Annotations "githubfiles_entry_resolved_message" }}{{ else }}{{ index .Alert.Annotations "githubfiles_entry_firing_message" }}{{ end }} {{"{{"}}< track "{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day | printf "%02d" }} {{ .Time.Hour | printf "%02d" }}-{{ .Time.Minute | printf "%02d" }}-{{ .Time.Second | printf "%02d" }}" >{{"}}"}}

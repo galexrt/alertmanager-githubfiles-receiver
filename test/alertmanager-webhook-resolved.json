@@ -8,17 +8,17 @@
           "alertname":"KubeletDown",
           "prometheus":"monitoring/k8s",
           "severity":"critical",
-          "githubfiles-enabled": "true"
+          "githubfilesenabled": "true"
         },
         "annotations":{
           "message":"Kubelet has disappeared from Prometheus target discovery.",
           "runbook_url":"https://github.com/kubernetes-monitoring/kubernetes-mixin/tree/master/runbook.md#alert-name-kubeletdown",
-          "githubfiles-file-title":"server-down",
-          "githubfiles-title":"Server ABC is down",
-          "githubfiles-severity":"down",
-          "githubfiles-affected":"server-abc",
-          "githubfiles-entry-firing-message":"Server is down. The automatic restart should kick in in a few minutes.",
-          "githubfiles-entry-resolved-message":"Server is up."
+          "githubfiles_file_title":"server-down",
+          "githubfiles_title":"Server ABC is down",
+          "githubfiles_severity":"down",
+          "githubfiles_affected":"server-abc",
+          "githubfiles_entry_firing_message":"Server is down. The automatic restart should kick in in a few minutes.",
+          "githubfiles_entry_resolved_message":"Server is up."
         },
         "startsAt":"2019-08-12T04:12:17.64901609Z",
         "endsAt":"2019-08-12T05:10:17.64901609Z",
