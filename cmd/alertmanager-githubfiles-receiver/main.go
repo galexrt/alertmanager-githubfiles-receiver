@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/galexrt/alertmanager-githubfiles-receiver/pkg/models"
 	"github.com/galexrt/alertmanager-githubfiles-receiver/receiver"
@@ -63,6 +64,7 @@ func init() {
 	rootCmd.PersistentFlags().String("dir", "content/issues", "base Path in the repository")
 	rootCmd.PersistentFlags().String("filename", "", "fixed string or template filename to create at the dir in the repository.")
 	rootCmd.PersistentFlags().String("content", "{{ . }}", "fixed string and / or template filename to create at the dir in the repository.")
+	rootCmd.PersistentFlags().Duration("debouncedelay", 30*time.Second, "debounce delay")
 
 	// Bind all flags
 	viper.BindPFlags(rootCmd.PersistentFlags())
@@ -144,6 +146,11 @@ func run(cmd *cobra.Command, args []string) error {
 
 	listenAddress := viper.GetString("listen")
 	log.Infof("starting listener on %s", listenAddress)
+
+	// TODO add signal handling
+	stopCh := make(chan struct{})
+
+	go handler.Run(stopCh)
 
 	mux := http.NewServeMux()
 	mux.Handle("/v1/receiver", promhttp.InstrumentHandlerDuration(receiverDuration, handler))

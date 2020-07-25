@@ -18,12 +18,14 @@ package receiver
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/galexrt/alertmanager-githubfiles-receiver/pkg/models"
@@ -32,6 +34,7 @@ import (
 	"github.com/google/go-github/v32/github"
 	"github.com/prometheus/alertmanager/notify/webhook"
 	alert_template "github.com/prometheus/alertmanager/template"
+	"github.com/prometheus/common/model"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -45,18 +48,106 @@ const (
 type Receiver struct {
 	filenameTmpl string
 
-	r *models.Repo
+	ch             chan alert_template.Alert
+	alerts         map[string]alert_template.Alert
+	alertsMutex    sync.Mutex
+	timeQueue      map[string]time.Time
+	timeQueueMutex sync.Mutex
 
+	r      *models.Repo
 	client *github.Client
 }
 
 // New return new Alerts Receiver
 func New(filenameTmpl string, r *models.Repo, client *github.Client) *Receiver {
 	return &Receiver{
-		filenameTmpl: filenameTmpl,
-		r:            r,
-		client:       client,
+		filenameTmpl:   filenameTmpl,
+		ch:             make(chan alert_template.Alert),
+		alerts:         map[string]alert_template.Alert{},
+		alertsMutex:    sync.Mutex{},
+		timeQueue:      map[string]time.Time{},
+		timeQueueMutex: sync.Mutex{},
+		r:              r,
+		client:         client,
 	}
+}
+
+// Run
+func (r *Receiver) Run(stopCh chan struct{}) error {
+	go func() {
+		select {
+		case <-time.After(time.Second):
+			r.timeQueueMutex.Lock()
+			for alertHash, t := range r.timeQueue {
+				if time.Now().After(t) {
+					log.Debugf("alert %s in timequeue not yet after debounce delay", alertHash)
+					continue
+				}
+
+				alert, ok := r.getAlertByHash(alertHash)
+				if !ok {
+					log.Warnf("didn't find alert for hash %s in alerts list, even though it is in the timeQueue", alertHash)
+					continue
+				}
+
+				// Remove it from the timeQueue and the alerts list
+				delete(r.timeQueue, alertHash)
+				r.alertsMutex.Lock()
+				delete(r.alerts, alertHash)
+				r.alertsMutex.Unlock()
+
+				// Handle alert now
+				if err := r.handleAlert(alert); err != nil {
+					log.Errorf("error while handling alert. %+v", err)
+					continue
+				}
+			}
+			r.timeQueueMutex.Unlock()
+		case <-stopCh:
+			return
+		}
+	}()
+
+	debounceDelay := viper.GetDuration("debounceDelay")
+
+	select {
+	case alert := <-r.ch:
+		alertHash := generateAlertHash(alert.Labels)
+		func() {
+			r.alertsMutex.Lock()
+			defer r.alertsMutex.Unlock()
+
+			item, ok := r.alerts[alertHash]
+			if ok {
+				alert = item
+			} else {
+				r.alerts[alertHash] = alert
+			}
+
+			r.timeQueueMutex.Lock()
+			defer r.timeQueueMutex.Unlock()
+
+			r.timeQueue[alertHash] = time.Now().Add(debounceDelay)
+		}()
+	case <-stopCh:
+		return nil
+	}
+	return nil
+}
+
+func (r *Receiver) getAlertByHash(hash string) (alert_template.Alert, bool) {
+	r.alertsMutex.Lock()
+	defer r.alertsMutex.Unlock()
+	alert, ok := r.alerts[hash]
+	return alert, ok
+}
+
+// generateAlertHash generate sha256 sum from the alert labels
+func generateAlertHash(labels alert_template.KV) string {
+	h := sha256.New()
+	h.Write([]byte(fmt.Sprintf("%v", labels)))
+
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func (r *Receiver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
@@ -86,7 +177,6 @@ func (r *Receiver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 	}
 
 	if err := r.handleWebhook(msg); err != nil {
-		log.Error(err)
 		res.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -104,16 +194,20 @@ func (r *Receiver) handleWebhook(msg *webhook.Message) error {
 			log.Error("the required label is not set")
 			continue
 		}
-		if err := r.handleAlert(msg, alert); err != nil {
-			return err
+
+		name, ok := alert.Labels[model.AlertNameLabel]
+		if !ok {
+			name = "N/A"
 		}
+		log.Infof("handling webhook for alert %s", name)
+		r.ch <- alert
 	}
 
 	return nil
 }
 
-func (r *Receiver) handleAlert(msg *webhook.Message, alert alert_template.Alert) error {
-	t := template.NewTemplater(r.r, msg, alert)
+func (r *Receiver) handleAlert(alert alert_template.Alert) error {
+	t := template.NewTemplater(r.r, alert)
 
 	fileName, err := t.Template(r.filenameTmpl)
 	if err != nil {

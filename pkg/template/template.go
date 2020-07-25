@@ -23,14 +23,12 @@ import (
 	"time"
 
 	"github.com/galexrt/alertmanager-githubfiles-receiver/pkg/models"
-	"github.com/prometheus/alertmanager/notify/webhook"
 	alert_template "github.com/prometheus/alertmanager/template"
 )
 
 // Templater takes care of templating our filenames and messages
 type Templater struct {
 	Repo  *models.Repo
-	MSG   *webhook.Message
 	Alert alert_template.Alert
 	Time  time.Time
 	Data  interface{}
@@ -42,10 +40,9 @@ type Time struct {
 }
 
 // NewTemplater return a new Templater
-func NewTemplater(r *models.Repo, msg *webhook.Message, alert alert_template.Alert) *Templater {
+func NewTemplater(r *models.Repo, alert alert_template.Alert) *Templater {
 	return &Templater{
 		Repo:  r,
-		MSG:   msg,
 		Alert: alert,
 		Time:  time.Now(),
 	}
