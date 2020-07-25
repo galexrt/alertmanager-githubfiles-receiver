@@ -1,3 +1,7 @@
+## 0.0.5 / 2020-07-26
+
+* [ENHANCEMENT] allow alerts to be debounced
+
 ## 0.0.4 / 2020-07-21
 
 * [BUG] allow log level to be set
