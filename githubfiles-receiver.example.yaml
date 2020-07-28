@@ -1,5 +1,6 @@
 loglevel: DEBUG
 listen: ':9959'
+dryrun: true
 repo: "OWNER/REPO_NAME"
 branch: master
 commitMessage: "incidents: updated incidents"

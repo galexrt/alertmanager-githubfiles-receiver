@@ -1,0 +1,13 @@
+FROM golang:1.14.5 as builder
+RUN mkdir -p /go/code
+COPY . /code
+RUN cd /code && \
+    go build -o /alertmanager-githubfiles-receiver ./cmd/alertmanager-githubfiles-receiver/
+
+#FROM quay.io/prometheus/busybox:latest
+FROM debian:buster
+LABEL maintainer="Alexander Trost <galexrt@googlemail.com>"
+
+COPY --from=builder /alertmanager-githubfiles-receiver /bin/alertmanager-githubfiles-receiver
+RUN chmod 755 /bin/alertmanager-githubfiles-receiver
+ENTRYPOINT ["/bin/alertmanager-githubfiles-receiver"]

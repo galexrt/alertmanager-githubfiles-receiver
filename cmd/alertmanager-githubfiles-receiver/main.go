@@ -60,6 +60,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.cobra.yaml)")
 	rootCmd.PersistentFlags().String("loglevel", "INFO", "logrus log level")
 	rootCmd.PersistentFlags().String("listen", ":9959", "webhook receiver listen address")
+	rootCmd.PersistentFlags().Bool("dryrun", true, "dry run mode")
 	rootCmd.PersistentFlags().String("repo", "", "full name of repository (with owner)")
 	rootCmd.PersistentFlags().String("dir", "content/issues", "base Path in the repository")
 	rootCmd.PersistentFlags().String("filename", "", "fixed string or template filename to create at the dir in the repository.")

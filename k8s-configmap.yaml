@@ -1,0 +1,34 @@
+apiVersion: v1
+data:
+  githubfiles-receiver.yaml: |
+    loglevel: DEBUG
+    listen: ':9959'
+    dryrun: false
+    repo: "moderngaming/status.modern-gaming.net"
+    branch: master
+    commitMessage: "incidents: updated incidents"
+    commitName: "Alexander Trost"
+    commitEmail: "galexrt@googlemail.com"
+    dir: "content/issues"
+    filename: |
+      {{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day | printf "%02d" }}-{{ index .Alert.Annotations "githubfiles_file_title" }}.md
+    engine: cstate
+    cstateFrontmatter: |
+      title: "{{ index .Alert.Annotations "githubfiles_title" }}"
+      date: {{ .Data.StartsAt }}
+      resolved: {{ if eq .Alert.Status "resolved" }}true{{ else }}false{{ end }}
+      resolvedWhen: {{ .Data.EndsAt }}
+      severity: {{ index .Alert.Annotations "githubfiles_severity" }}
+      affected:
+      {{- $arr := Split (index .Alert.Annotations "githubfiles_affected") "," }}
+      {{- range $k, $v := $arr }}
+        - {{ $v }}
+      {{- end }}
+      section: issue
+    cstateEntry: |
+      *{{ .Data.State }}* {{ if eq .Alert.Status "resolved" }}{{ index .Alert.Annotations "githubfiles_entry_resolved_message" }}{{ else }}{{ index .Alert.Annotations "githubfiles_entry_firing_message" }}{{ end }} {{"{{"}}< track "{{ .Time.Year }}-{{ .Time.Month | printf "%02d" }}-{{ .Time.Day | printf "%02d" }} {{ .Time.Hour | printf "%02d" }}:{{ .Time.Minute | printf "%02d" }}:{{ .Time.Second | printf "%02d" }}" >{{"}}"}}
+kind: ConfigMap
+metadata:
+  labels:
+    app: receiver-githubfiles
+  name: receiver-githubfiles-config

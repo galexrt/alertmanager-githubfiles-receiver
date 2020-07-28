@@ -44,15 +44,19 @@ const (
 	EnabledRuleLabel = "githubfilesenabled"
 )
 
+type alertInfo struct {
+	alert   alert_template.Alert
+	time    time.Time
+	counter int
+}
+
 // Receiver webhook receiver
 type Receiver struct {
 	filenameTmpl string
 
-	ch             chan alert_template.Alert
-	alerts         map[string]alert_template.Alert
-	alertsMutex    sync.Mutex
-	timeQueue      map[string]time.Time
-	timeQueueMutex sync.Mutex
+	ch          chan alertInfo
+	alerts      map[string]alertInfo
+	alertsMutex sync.Mutex
 
 	r      *models.Repo
 	client *github.Client
@@ -61,85 +65,77 @@ type Receiver struct {
 // New return new Alerts Receiver
 func New(filenameTmpl string, r *models.Repo, client *github.Client) *Receiver {
 	return &Receiver{
-		filenameTmpl:   filenameTmpl,
-		ch:             make(chan alert_template.Alert),
-		alerts:         map[string]alert_template.Alert{},
-		alertsMutex:    sync.Mutex{},
-		timeQueue:      map[string]time.Time{},
-		timeQueueMutex: sync.Mutex{},
-		r:              r,
-		client:         client,
+		filenameTmpl: filenameTmpl,
+		ch:           make(chan alertInfo, 10),
+		alerts:       map[string]alertInfo{},
+		alertsMutex:  sync.Mutex{},
+		r:            r,
+		client:       client,
 	}
 }
 
-// Run
+// Run run alert receiver loop. This contains the debounce logic for alerts.
 func (r *Receiver) Run(stopCh chan struct{}) error {
+	debounceDelay := viper.GetDuration("debouncedelay")
+
 	go func() {
 		select {
-		case <-time.After(time.Second):
-			r.timeQueueMutex.Lock()
-			for alertHash, t := range r.timeQueue {
-				if time.Now().After(t) {
-					log.Debugf("alert %s in timequeue not yet after debounce delay", alertHash)
-					continue
-				}
-
-				alert, ok := r.getAlertByHash(alertHash)
-				if !ok {
-					log.Warnf("didn't find alert for hash %s in alerts list, even though it is in the timeQueue", alertHash)
-					continue
-				}
-
-				// Remove it from the timeQueue and the alerts list
-				delete(r.timeQueue, alertHash)
+		case <-time.After(debounceDelay):
+			log.Debugf("debounce tick")
+			func() {
 				r.alertsMutex.Lock()
-				delete(r.alerts, alertHash)
-				r.alertsMutex.Unlock()
+				defer r.alertsMutex.Unlock()
 
-				// Handle alert now
-				if err := r.handleAlert(alert); err != nil {
-					log.Errorf("error while handling alert. %+v", err)
-					continue
+				for alertHash, t := range r.alerts {
+					if time.Now().After(t.time) {
+						log.Debugf("alert %s in timequeue not yet after debounce delay", alertHash)
+						continue
+					}
+					a, ok := r.alerts[alertHash]
+					if !ok {
+						log.Warnf("didn't find alert for hash %s in alerts list, even though it is in the timeQueue", alertHash)
+						continue
+					}
+
+					// Remove the alert from the map
+					delete(r.alerts, alertHash)
+
+					// Handle alert now
+					if err := r.handleAlert(a); err != nil {
+						log.Errorf("error while handling alert. %+v", err)
+					}
+					break
 				}
-			}
-			r.timeQueueMutex.Unlock()
+			}()
+			log.Debugf("debounce tick complete")
 		case <-stopCh:
 			return
 		}
 	}()
 
-	debounceDelay := viper.GetDuration("debounceDelay")
-
 	select {
-	case alert := <-r.ch:
-		alertHash := generateAlertHash(alert.Labels)
+	case a := <-r.ch:
+		alertHash := generateAlertHash(a.alert.Labels)
+		log.Debugf("added alert %s (label names: %+v) to alerts queue", alertHash, a.alert.Labels.Names())
 		func() {
 			r.alertsMutex.Lock()
 			defer r.alertsMutex.Unlock()
 
 			item, ok := r.alerts[alertHash]
 			if ok {
-				alert = item
-			} else {
-				r.alerts[alertHash] = alert
+				a = item
+			}
+			// Only set time + debouncedelay
+			if a.time.IsZero() {
+				a.time = time.Now().Add(debounceDelay)
 			}
 
-			r.timeQueueMutex.Lock()
-			defer r.timeQueueMutex.Unlock()
-
-			r.timeQueue[alertHash] = time.Now().Add(debounceDelay)
+			r.alerts[alertHash] = a
 		}()
 	case <-stopCh:
 		return nil
 	}
 	return nil
-}
-
-func (r *Receiver) getAlertByHash(hash string) (alert_template.Alert, bool) {
-	r.alertsMutex.Lock()
-	defer r.alertsMutex.Unlock()
-	alert, ok := r.alerts[hash]
-	return alert, ok
 }
 
 // generateAlertHash generate sha256 sum from the alert labels
@@ -183,9 +179,9 @@ func (r *Receiver) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Receiver) handleWebhook(msg *webhook.Message) error {
-	for _, alert := range msg.Alerts {
+	for _, a := range msg.Alerts {
 		requiredLabelsSet := false
-		for k := range alert.Labels {
+		for k := range a.Labels {
 			if k == EnabledRuleLabel {
 				requiredLabelsSet = true
 			}
@@ -195,19 +191,21 @@ func (r *Receiver) handleWebhook(msg *webhook.Message) error {
 			continue
 		}
 
-		name, ok := alert.Labels[model.AlertNameLabel]
+		name, ok := a.Labels[model.AlertNameLabel]
 		if !ok {
 			name = "N/A"
 		}
 		log.Infof("handling webhook for alert %s", name)
-		r.ch <- alert
+		r.ch <- alertInfo{
+			alert: a,
+		}
 	}
 
 	return nil
 }
 
-func (r *Receiver) handleAlert(alert alert_template.Alert) error {
-	t := template.NewTemplater(r.r, alert)
+func (r *Receiver) handleAlert(a alertInfo) error {
+	t := template.NewTemplater(r.r, a.alert)
 
 	fileName, err := t.Template(r.filenameTmpl)
 	if err != nil {
@@ -221,12 +219,11 @@ func (r *Receiver) handleAlert(alert alert_template.Alert) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	file, _, resp, err := r.client.Repositories.GetContents(ctx, r.r.Owner, r.r.Repo, path.Join(r.r.Dir, fileName), opts)
-	if resp.StatusCode == http.StatusNotFound {
-		needToCreateFile = true
-	} else {
-		if err != nil {
+	if resp != nil {
+		if resp.StatusCode != http.StatusNotFound {
 			return err
 		}
+		needToCreateFile = true
 	}
 
 	fileContent := ""
@@ -252,8 +249,12 @@ func (r *Receiver) handleAlert(alert alert_template.Alert) error {
 		fmt.Printf("content:\n%s\n", fileContent)
 	}
 
-	if err := r.createOrUpdateFileInRepo(path.Join(r.r.Dir, fileName), fileContent, needToCreateFile, sha); err != nil {
-		return err
+	if viper.GetBool("dryrun") {
+		log.Infof("dry run active, not creating or updating file in repo (needToCreateFile: %t)", needToCreateFile)
+	} else {
+		if err := r.createOrUpdateFileInRepo(path.Join(r.r.Dir, fileName), fileContent, needToCreateFile, sha); err != nil {
+			return err
+		}
 	}
 
 	return nil
