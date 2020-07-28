@@ -1,3 +1,7 @@
+## 0.0.6 / 2020-07-29
+
+* [BUG] alert debounce logic has been fixed
+
 ## 0.0.5 / 2020-07-26
 
 * [ENHANCEMENT] allow alerts to be debounced
