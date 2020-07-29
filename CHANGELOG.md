@@ -1,3 +1,7 @@
+## 0.0.7 / 2020-07-29
+
+* [ENHANCEMENT] more debug logging
+
 ## 0.0.6 / 2020-07-29
 
 * [BUG] alert debounce logic has been fixed
