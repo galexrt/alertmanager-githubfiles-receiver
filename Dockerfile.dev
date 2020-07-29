@@ -4,10 +4,13 @@ COPY . /code
 RUN cd /code && \
     go build -o /alertmanager-githubfiles-receiver ./cmd/alertmanager-githubfiles-receiver/
 
-#FROM quay.io/prometheus/busybox:latest
 FROM debian:buster
 LABEL maintainer="Alexander Trost <galexrt@googlemail.com>"
 
+RUN apt -q update && \
+    apt install -y ca-certificates
+
 COPY --from=builder /alertmanager-githubfiles-receiver /bin/alertmanager-githubfiles-receiver
 RUN chmod 755 /bin/alertmanager-githubfiles-receiver
+
 ENTRYPOINT ["/bin/alertmanager-githubfiles-receiver"]
