@@ -54,8 +54,8 @@ type alertInfo struct {
 type Receiver struct {
 	filenameTmpl string
 
-	ch          chan alertInfo
-	alerts      map[string]alertInfo
+	ch          chan *alertInfo
+	alerts      map[string]*alertInfo
 	alertsMutex sync.Mutex
 
 	r      *models.Repo
@@ -66,8 +66,8 @@ type Receiver struct {
 func New(filenameTmpl string, r *models.Repo, client *github.Client) *Receiver {
 	return &Receiver{
 		filenameTmpl: filenameTmpl,
-		ch:           make(chan alertInfo, 10),
-		alerts:       map[string]alertInfo{},
+		ch:           make(chan *alertInfo, 10),
+		alerts:       map[string]*alertInfo{},
 		alertsMutex:  sync.Mutex{},
 		r:            r,
 		client:       client,
@@ -116,10 +116,9 @@ func (r *Receiver) Run(stopCh chan struct{}) error {
 	select {
 	case a := <-r.ch:
 		alertHash := generateAlertHash(a.alert.Labels)
-		log.Debugf("added alert %s (label names: %+v) to alerts queue", alertHash, a.alert.Labels.Names())
+		log.Infof("adding alert %s (label names: %+v) to alerts queue", alertHash, a.alert.Labels.Names())
 		func() {
 			r.alertsMutex.Lock()
-			defer r.alertsMutex.Unlock()
 
 			item, ok := r.alerts[alertHash]
 			if ok {
@@ -132,6 +131,7 @@ func (r *Receiver) Run(stopCh chan struct{}) error {
 
 			r.alerts[alertHash] = a
 		}()
+		log.Debugf("added alert %s (label names: %+v) to alerts queue", alertHash, a.alert.Labels.Names())
 	case <-stopCh:
 		return nil
 	}
@@ -196,7 +196,7 @@ func (r *Receiver) handleWebhook(msg *webhook.Message) error {
 			name = "N/A"
 		}
 		log.Infof("handling webhook for alert %s", name)
-		r.ch <- alertInfo{
+		r.ch <- &alertInfo{
 			alert: a,
 		}
 	}
@@ -204,7 +204,7 @@ func (r *Receiver) handleWebhook(msg *webhook.Message) error {
 	return nil
 }
 
-func (r *Receiver) handleAlert(a alertInfo) error {
+func (r *Receiver) handleAlert(a *alertInfo) error {
 	t := template.NewTemplater(r.r, a.alert)
 
 	fileName, err := t.Template(r.filenameTmpl)
