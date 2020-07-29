@@ -209,10 +209,17 @@ func (r *Receiver) handleWebhook(msg *webhook.Message) error {
 		if !ok {
 			name = "N/A"
 		}
+
+		// If the alert is resolved, "immidiately" take care of it
+		aTime := time.Now()
+		if a.Status != "resolved" {
+			aTime = time.Now().Add(debounceDelay)
+		}
+
 		log.Infof("handling webhook for alert %s", name)
 		r.ch <- &alertInfo{
 			alert: a,
-			time:  time.Now().Add(debounceDelay),
+			time:  aTime,
 		}
 	}
 
