@@ -1,5 +1,8 @@
 FROM quay.io/prometheus/busybox:latest
 
+ARG BUILD_DATE="N/A"
+ARG REVISION="N/A"
+
 LABEL org.opencontainers.image.authors="Alexander Trost <galexrt@googlemail.com>" \
     org.opencontainers.image.created="${BUILD_DATE}" \
     org.opencontainers.image.title="galexrt/alertmanager-githubfiles-receiver" \
